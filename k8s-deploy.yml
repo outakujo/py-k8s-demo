@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: py-demo
+  namespace: demo
+  labels:
+    app: py-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: py-demo
+  template:
+    metadata:
+      labels:
+        app: py-demo
+    spec:
+      containers:
+        - name: py-demo
+          image: py-demo
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m     
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: py-demo
+  namespace: demo
+  labels:
+    app: py-demo
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: py-demo  
+
+---
+
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: py-strip
+  namespace: demo
+spec:
+  stripPrefix:
+    prefixes:
+      - /demo
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: py-demo
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: demo-py-strip@kubernetescrd
+  namespace: demo
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /demo
+            pathType: Prefix
+            backend:
+              service:
+                name: py-demo
+                port:
+                  number: 8080
+
